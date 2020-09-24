@@ -1,0 +1,4 @@
+hx711.c:3:6:HX711_Init	32	static
+hx711.c:24:5:HX711_Average_Value	24	static
+hx711.c:35:5:HX711_Value	24	static
+hx711.c:68:7:HX711_Tare	40	static
