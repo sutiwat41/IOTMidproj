@@ -37,8 +37,9 @@ int HX711_Value(HX711 data)
     int buffer;
     buffer = 0;
 
-    while (HAL_GPIO_ReadPin(data.gpioData, data.pinData)==1)
-    ;
+   if(HAL_GPIO_ReadPin(data.gpioData, data.pinData)==1) return buffer;
+
+
 
     for (uint8_t i = 0; i < 24; i++)
     {

@@ -177,6 +177,41 @@ void HCSR04_Read (void)
 	__HAL_TIM_ENABLE_IT(&htim1, TIM_IT_CC1);
 }
 
+
+int HX711_Value2()
+{
+    int buffer;
+    buffer = 0;
+
+   if(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11)==1) return buffer;
+
+
+
+    for (uint8_t i = 0; i < 24; i++)
+    {
+    	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);
+
+        buffer = buffer << 1 ;
+
+        if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_11))
+        {
+            buffer ++;
+        }
+
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+    }
+
+    for (int i = 0; i <64 ; i++)
+    {
+    	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_SET);
+    	HAL_GPIO_WritePin(GPIOC, GPIO_PIN_10, GPIO_PIN_RESET);
+    }
+
+    buffer = buffer ^ 0x800000;
+
+    return buffer;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -192,7 +227,7 @@ int main(void)
 	  hx11.pinSck = GPIO_PIN_10;
 	  hx11.pinData = GPIO_PIN_11;
 	  hx11.offset = 0;
-	  hx11.gain = 64;
+	  hx11.gain = 24;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -234,50 +269,94 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  int count = 0;
-  char str[50];
+  int count = 0,stateDoor = 0,mode = 0;
+  char str[50],str2[50];
   while (1)
   {
 	  HCSR04_Read();
+	  meres = HX711_Value2();
+	  //calibate 1  float weight = meres*(0.0025617)-21721 ; (9/23/2020)
+	  //calibate 2  float weight = meres*(0.002378401)- 20252.24955;
 
 
-	  meres = HX711_Value(hx11);
-	  float weight = meres*(0.0025517)-21721 ;
+
+	  float weight = meres*(0.005643482)- 47713.94889;
 	  if(weight < 0) weight = 0;
+
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-	  lcd_put_cur(0,0);
+	  if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 0) {
+	 			  // Magic, let's wait for a bit
+	 			  HAL_Delay(10);
+	 			  // It is really still down
+	 			  if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 0) {
+	 				  // Wait while the button is still down
+	 				  while(HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 0);
+	 				  HAL_Delay(10);
+	 				  // Button is hit
+	 				  mode = !mode;
+	 			  }
+	 		  }
+
+
+
 	  sprintf(str,"|W| = %.2f g",weight);
-	  lcd_send_string(str);
-	  lcd_put_cur(1,0);
 	  float volume = (Distance_2/30.0)*100.0;
-	  sprintf(str,"|d2| = %.2f %",volume);
-	  lcd_send_string(str);
-	  if(count == 10){
-		  htim2.Instance->CCR1 = 75;
-		  count = 0;
-	  }
-	  else if(count > 0) count++;
 
-	  if (Distance <= 10.0)
-	      {
-		    htim2.Instance->CCR1 = 25;
-	        if(count == 0) count++;
 
-	      }
 
-	  	  sprintf(str,"distance = %f,%d cm\r\n",Distance,count);
-	  	  HAL_UART_Transmit(&huart2,str,strlen(str),1000);
 
-		  HAL_Delay(200);
+
+
+
+		  if(mode) stateDoor = 1;
+		  else if( Distance <= 15.0  && (weight<=500.0 && volume>20.0 )){
+			  stateDoor = 1;
+		  }
+		  else if(!mode){
+			  stateDoor = 0;
+			  //count = -1;
+		  }
+
+		  if(count > 0) count++;
+		  if(count == 10){
+
+			  stateDoor = 0;
+		  }
+
+		  if(stateDoor){
+			  //opened
+			  sprintf(str2,"Door open ");
+			  htim2.Instance->CCR1 = 25;
+			  count = 1;
+		  }
+		  else{
+			  //closed
+			  if(count < 0 ) sprintf(str2,"Door close");
+			  else sprintf(str2,"|%%| = %.2f %%",volume);
+			  htim2.Instance->CCR1 = 75;
+			  count = 0;
+		  }
+
+		  if(!((weight<=500.0 && volume>20.0 ))) sprintf(str2,"Garbage Full");
+		  	  lcd_put_cur(0,0);
+		  	  lcd_send_string(str);
+		  	  lcd_put_cur(1,0);
+		  	  lcd_send_string(str2);
+
+
+	  		sprintf(str,"distance = %f,%f cm w = %f,m = %d\r\n",Distance,Distance_2,weight,meres);
+	  	  	HAL_UART_Transmit(&huart2,str,strlen(str),1000);
+
+
+	  	  	HAL_Delay(200);
+	  	  lcd_clear();
 
   	  }
 
-
-  lcd_clear();
 
 
 
@@ -379,7 +458,7 @@ static void MX_SPI3_Init(void)
   /* SPI3 parameter configuration*/
   hspi3.Instance = SPI3;
   hspi3.Init.Mode = SPI_MODE_SLAVE;
-  hspi3.Init.Direction = SPI_DIRECTION_1LINE;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
   hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
