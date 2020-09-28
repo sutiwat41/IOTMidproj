@@ -321,7 +321,7 @@ int main(void)
 
 		  if(count <=0 || count >= 10){
 
-			  	  if(stateDoor){
+			  	  if(stateDoor || mode){
 			  			  //opened
 			  			  sprintf(str2,"Door open ");
 			  			  htim2.Instance->CCR1 = 25;
