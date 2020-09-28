@@ -24,12 +24,12 @@ void HX711_Init(HX711 data)
 int HX711_Average_Value(HX711 data, uint8_t times)
 {
     int sum = 0;
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < times; i++)
     {
         sum += HX711_Value(data);
     }
 
-    return sum / 5;
+    return sum / times;
 }
 
 int HX711_Value(HX711 data)
@@ -37,9 +37,8 @@ int HX711_Value(HX711 data)
     int buffer;
     buffer = 0;
 
-   if(HAL_GPIO_ReadPin(data.gpioData, data.pinData)==1) return buffer;
-
-
+    if(HAL_GPIO_ReadPin(data.gpioData, data.pinData)==1)
+    	return buffer;
 
     for (uint8_t i = 0; i < 24; i++)
     {

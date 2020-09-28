@@ -275,20 +275,23 @@ int main(void)
   {
 	  HCSR04_Read();
 	  meres = HX711_Value2();
-	  //calibate 1  float weight = meres*(0.0025617)-21721 ; (9/23/2020)
-	  //calibate 2  float weight = meres*(0.002378401)- 20252.24955;
+	  //calibate 1  float weight = meres*(0.0025617)-21721 ; 			(9/23/2020 0 : 84xxxxxx)
+	  //calibate 2  float weight = meres*(0.002378401)- 20252.24955;	(0 : 8514832)
+	  //calibate 3  float weight = meres*(0.005643482)- 47713.94889;
+	  float weight = meres*(0.002378401)- 20252.24955;
 
-
-
-	  float weight = meres*(0.005643482)- 47713.94889;
 	  if(weight < 0) weight = 0;
 
+
+
+  	  float volume = (Distance_2/30.0)*100.0;
+  	  if(volume > 100.0) volume = 100.0;
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-	  if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 0) {
+	  	  if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == 0) {
 	 			  // Magic, let's wait for a bit
 	 			  HAL_Delay(10);
 	 			  // It is really still down
@@ -299,61 +302,67 @@ int main(void)
 	 				  // Button is hit
 	 				  mode = !mode;
 	 			  }
+
+
+	 			  if(mode) stateDoor = 1;
+	 			  else {
+	 				  		stateDoor = 0;
+	 				  	  	count = 10;
+	 			  }
+
 	 		  }
+	  	  else{
+	  		  	  if( Distance <= 15.0  ){
+	  					  if(weight<=500.0 && volume>20.0 )	stateDoor = 1;
+	  					  else if(stateDoor && !(weight<=500.0 && volume>20.0 )) stateDoor = 1;
+	  				  }
+	  		  	 else if(Distance > 15.0 ) stateDoor = 0;
+
+	  	  }
 
 
 
-	  sprintf(str,"|W| = %.2f g",weight);
-	  float volume = (Distance_2/30.0)*100.0;
+
+	  	sprintf(str,"|W| = %.2f g",weight);
 
 
+		  if(count <=0 || count >= 10){
 
-
-
-
-
-		  if(mode) stateDoor = 1;
-		  else if( Distance <= 15.0  && (weight<=500.0 && volume>20.0 )){
-			  stateDoor = 1;
+			  	  if(stateDoor){
+			  			  //opened
+			  			  sprintf(str2,"Door open ");
+			  			  htim2.Instance->CCR1 = 25;
+			  			  count = 1;
+			  		  }
+			  	  else{
+			  			  //closed
+			  			  sprintf(str2,"|%%| = %.2f %%",volume);
+			  			  if(count >= 10) sprintf(str2,"Door closing");
+			  			  htim2.Instance->CCR1 = 75;
+			  			  count = 0;
+			  		  }
 		  }
-		  else if(!mode){
-			  stateDoor = 0;
-			  //count = -1;
-		  }
-
-		  if(count > 0) count++;
-		  if(count == 10){
-
-			  stateDoor = 0;
-		  }
-
-		  if(stateDoor){
-			  //opened
+		  else {
 			  sprintf(str2,"Door open ");
-			  htim2.Instance->CCR1 = 25;
-			  count = 1;
+			  count++;
 		  }
-		  else{
-			  //closed
-			  if(count < 0 ) sprintf(str2,"Door close");
-			  else sprintf(str2,"|%%| = %.2f %%",volume);
-			  htim2.Instance->CCR1 = 75;
-			  count = 0;
-		  }
+
+
 
 		  if(!((weight<=500.0 && volume>20.0 ))) sprintf(str2,"Garbage Full");
-		  	  lcd_put_cur(0,0);
-		  	  lcd_send_string(str);
-		  	  lcd_put_cur(1,0);
-		  	  lcd_send_string(str2);
+
+		  lcd_put_cur(0,0);
+		  lcd_send_string(str);
+		  lcd_put_cur(1,0);
+		  lcd_send_string(str2);
 
 
-	  		sprintf(str,"distance = %f,%f cm w = %f,m = %d\r\n",Distance,Distance_2,weight,meres);
+	  		sprintf(str,"distance = %f,%f cm w = %f,m = %d|co = %d|std = %d\r\n",Distance,Distance_2,weight,meres,count,stateDoor);
 	  	  	HAL_UART_Transmit(&huart2,str,strlen(str),1000);
 
 
 	  	  	HAL_Delay(200);
-	  	  lcd_clear();
+	  	  	lcd_clear();
 
   	  }
 
